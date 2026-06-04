@@ -1,0 +1,38 @@
+(library
+ (name chamallaw)
+ (public_name chamallaw)
+ (libraries caqti caqti-eio yojson ptime ptime.clock.os)
+ (preprocess
+  (pps ppx_blob))
+ (preprocessor_deps
+  (file seed/builtin_vocabulary.json))
+ (modules
+  chamallaw
+  authorized_scope
+  authorized_scope_check
+  host_adapter
+  internal_migrations
+  law_concept_link_role
+  law_concept_links_store
+  law_normative_metadata_kinds
+  law_normative_metadata_store
+  law_relation_kind
+  law_store
+  normalized_work_context
+  package_metadata_store
+  schema_fragments
+  vocabulary_store)
+ (private_modules
+  authorized_scope_check
+  internal_migrations
+  law_concept_link_role
+  law_concept_links_store
+  law_normative_metadata_kinds
+  law_normative_metadata_store
+  law_relation_kind
+  law_store
+  package_metadata_store
+  schema_fragments
+  vocabulary_store)
+ (instrumentation
+  (backend bisect_ppx)))

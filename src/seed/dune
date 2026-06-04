@@ -1,0 +1,5 @@
+(rule
+ (target builtin_vocabulary.json)
+ (deps ../../seed/builtin_vocabulary.json)
+ (action
+  (copy %{deps} %{target})))

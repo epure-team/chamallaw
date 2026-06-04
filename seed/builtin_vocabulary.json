@@ -1,0 +1,222 @@
+{
+  "relation_types": [
+    {
+      "slug": "broader",
+      "is_hierarchical": true,
+      "is_traversal_enabled": true
+    },
+    {
+      "slug": "narrower",
+      "is_hierarchical": true,
+      "is_traversal_enabled": true
+    },
+    {
+      "slug": "related",
+      "is_hierarchical": false,
+      "is_traversal_enabled": false
+    },
+    {
+      "slug": "implies",
+      "is_hierarchical": false,
+      "is_traversal_enabled": true
+    },
+    {
+      "slug": "conflicts_with",
+      "is_hierarchical": false,
+      "is_traversal_enabled": false
+    }
+  ],
+  "schemes": [
+    {
+      "slug": "epure-builtin-phases",
+      "display_name": "Épure Built-in Phases",
+      "description": "Software development lifecycle phases",
+      "scope_kind": "global"
+    },
+    {
+      "slug": "epure-builtin-agent-roles",
+      "display_name": "Épure Built-in Agent Roles",
+      "description": "Multi-agent system roles",
+      "scope_kind": "global"
+    },
+    {
+      "slug": "epure-builtin-languages",
+      "display_name": "Épure Built-in Languages",
+      "description": "Programming languages commonly handled by Épure",
+      "scope_kind": "global"
+    }
+  ],
+  "concepts": [
+    {
+      "scheme_slug": "epure-builtin-phases",
+      "slug": "design",
+      "definition": "Architecture and design phase",
+      "scope_note": "Applies to architectural decisions, design docs, API design"
+    },
+    {
+      "scheme_slug": "epure-builtin-phases",
+      "slug": "implementation",
+      "definition": "Code implementation phase",
+      "scope_note": "Applies to source code, build scripts, configuration"
+    },
+    {
+      "scheme_slug": "epure-builtin-phases",
+      "slug": "testing",
+      "definition": "Testing and validation phase",
+      "scope_note": "Applies to test code, test plans, CI configuration"
+    },
+    {
+      "scheme_slug": "epure-builtin-phases",
+      "slug": "review",
+      "definition": "Review and approval phase",
+      "scope_note": "Applies to code review, design review, architectural review"
+    },
+    {
+      "scheme_slug": "epure-builtin-phases",
+      "slug": "deployment",
+      "definition": "Deployment and release phase",
+      "scope_note": "Applies to release automation, runtime configuration, and production rollout"
+    },
+    {
+      "scheme_slug": "epure-builtin-agent-roles",
+      "slug": "analyst",
+      "definition": "Analyst agent role",
+      "scope_note": "Elicits and documents requirements"
+    },
+    {
+      "scheme_slug": "epure-builtin-agent-roles",
+      "slug": "architect",
+      "definition": "Architect agent role",
+      "scope_note": "Evaluates feasibility and challenges proposals"
+    },
+    {
+      "scheme_slug": "epure-builtin-agent-roles",
+      "slug": "builder",
+      "definition": "Builder agent role",
+      "scope_note": "Implements code changes"
+    },
+    {
+      "scheme_slug": "epure-builtin-agent-roles",
+      "slug": "reviewer",
+      "definition": "Reviewer agent role",
+      "scope_note": "Reviews implementation against acceptance criteria"
+    },
+    {
+      "scheme_slug": "epure-builtin-agent-roles",
+      "slug": "critic",
+      "definition": "Critic agent role",
+      "scope_note": "Identifies risks, gaps, and counterexamples"
+    },
+    {
+      "scheme_slug": "epure-builtin-languages",
+      "slug": "ocaml",
+      "definition": "OCaml programming language",
+      "scope_note": "Applies to OCaml source, dune configuration, and opam packages"
+    },
+    {
+      "scheme_slug": "epure-builtin-languages",
+      "slug": "typescript",
+      "definition": "TypeScript programming language",
+      "scope_note": "Applies to TypeScript source and frontend build tooling"
+    },
+    {
+      "scheme_slug": "epure-builtin-languages",
+      "slug": "python",
+      "definition": "Python programming language",
+      "scope_note": "Applies to Python source, packaging, and tests"
+    }
+  ],
+  "labels": [
+    {
+      "concept_scheme_slug": "epure-builtin-phases",
+      "concept_slug": "design",
+      "text": "design",
+      "kind": "preferred"
+    },
+    {
+      "concept_scheme_slug": "epure-builtin-phases",
+      "concept_slug": "design",
+      "text": "architecture",
+      "kind": "alternate"
+    },
+    {
+      "concept_scheme_slug": "epure-builtin-phases",
+      "concept_slug": "implementation",
+      "text": "implementation",
+      "kind": "preferred"
+    },
+    {
+      "concept_scheme_slug": "epure-builtin-phases",
+      "concept_slug": "implementation",
+      "text": "coding",
+      "kind": "alternate"
+    },
+    {
+      "concept_scheme_slug": "epure-builtin-phases",
+      "concept_slug": "testing",
+      "text": "testing",
+      "kind": "preferred"
+    },
+    {
+      "concept_scheme_slug": "epure-builtin-phases",
+      "concept_slug": "review",
+      "text": "review",
+      "kind": "preferred"
+    },
+    {
+      "concept_scheme_slug": "epure-builtin-phases",
+      "concept_slug": "deployment",
+      "text": "deployment",
+      "kind": "preferred"
+    },
+    {
+      "concept_scheme_slug": "epure-builtin-agent-roles",
+      "concept_slug": "analyst",
+      "text": "analyst",
+      "kind": "preferred"
+    },
+    {
+      "concept_scheme_slug": "epure-builtin-agent-roles",
+      "concept_slug": "architect",
+      "text": "architect",
+      "kind": "preferred"
+    },
+    {
+      "concept_scheme_slug": "epure-builtin-agent-roles",
+      "concept_slug": "builder",
+      "text": "builder",
+      "kind": "preferred"
+    },
+    {
+      "concept_scheme_slug": "epure-builtin-agent-roles",
+      "concept_slug": "reviewer",
+      "text": "reviewer",
+      "kind": "preferred"
+    },
+    {
+      "concept_scheme_slug": "epure-builtin-agent-roles",
+      "concept_slug": "critic",
+      "text": "critic",
+      "kind": "preferred"
+    },
+    {
+      "concept_scheme_slug": "epure-builtin-languages",
+      "concept_slug": "ocaml",
+      "text": "OCaml",
+      "kind": "preferred"
+    },
+    {
+      "concept_scheme_slug": "epure-builtin-languages",
+      "concept_slug": "typescript",
+      "text": "TypeScript",
+      "kind": "preferred"
+    },
+    {
+      "concept_scheme_slug": "epure-builtin-languages",
+      "concept_slug": "python",
+      "text": "Python",
+      "kind": "preferred"
+    }
+  ],
+  "relations": []
+}
