@@ -12,6 +12,19 @@
   test_law_store
   test_law_normative_metadata_store
   test_law_concept_links_store)
+ (modules
+  test_package_metadata_store
+  test_concept_scheme_store
+  test_concept_store
+  test_concept_label_store
+  test_concept_relation_store
+  test_concept_search_store
+  test_builtin_vocabulary_seed
+  test_vocabulary_integration
+  test_law_package_v2_migration
+  test_law_store
+  test_law_normative_metadata_store
+  test_law_concept_links_store)
  (libraries
   chamallaw
   alcotest
@@ -21,3 +34,26 @@
   caqti-eio.unix
   eio
   eio_posix))
+
+(test
+ (name test_chamallaw_claude_example)
+ (deps ../examples/chamallaw_claude_workflow.ml)
+ (libraries
+  chamallaw
+  alcotest
+  caqti
+  caqti-driver-sqlite3
+  caqti-eio
+  caqti-eio.unix
+  eio
+  eio_posix
+  unix
+  uri)
+ (action
+  (setenv
+   CHAMALLAW_EXAMPLE_SOURCE
+   %{dep:../examples/chamallaw_claude_workflow.ml}
+   (setenv
+    CHAMALLAW_EXAMPLE_EXE
+    %{exe:../examples/chamallaw_claude_workflow.exe}
+    (run %{test})))))

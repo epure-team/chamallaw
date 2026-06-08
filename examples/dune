@@ -1,0 +1,14 @@
+(executable
+ (name chamallaw_claude_workflow)
+ (libraries
+  chamallaw
+  cabal
+  caqti
+  caqti-eio
+  caqti-eio.unix
+  caqti-driver-sqlite3
+  eio
+  eio_posix
+  uri
+  yojson
+  unix))
