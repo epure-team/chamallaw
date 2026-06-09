@@ -110,13 +110,13 @@ let fixture_json =
       "concept_slug": "curator-fixture",
       "preferred_label": "curator fixture",
       "definition": "A deterministic local curator suggestion used by the example test.",
-      "scope_note": "Exercises local parsing and application without calling Claude."
+      "scope_note": "Exercises local parsing and application without calling a live backend."
     }
   ],
   "law_suggestions": [
     {
       "statement": "Fixture curator laws must be applied through Chamallaw stores.",
-      "rationale": "The example should prove the local DB workflow independently of Claude availability.",
+      "rationale": "The example should prove the local DB workflow independently of live backend availability.",
       "concept_links": [
         {
           "scheme_slug": "workflow-governance",
@@ -137,13 +137,25 @@ let fixture_json =
   ]
 }|}
 
-let test_help_executes_without_claude () =
+let test_help_executes_without_live_backend () =
   let result = run_capture (example_exe ()) ["--help"] in
   check_exit_code 0 result ;
   Alcotest.(check bool)
     "help mentions local curator fixture option"
     true
-    (contains result.stderr "--curator-output-json")
+    (contains result.stderr "--curator-output-json") ;
+  Alcotest.(check bool)
+    "help mentions Cabal debug option"
+    true
+    (contains result.stderr "--debug-cabal") ;
+  Alcotest.(check bool)
+    "help mentions backend option"
+    true
+    (contains result.stderr "--backend BACKEND") ;
+  Alcotest.(check bool)
+    "help mentions supported codex backend"
+    true
+    (contains result.stderr "codex")
 
 let init_ctx conn =
   match ok_or_fail (Chamallaw.init conn) with
@@ -273,6 +285,88 @@ let test_local_fixture_workflow_executes_db_flow () =
         ] ;
       assert_db_contains_fixture db_path)
 
+let test_debug_cabal_flag_accepts_fixture_workflow () =
+  let project_dir = create_temp_dir "chamallaw_example_project_" in
+  Fun.protect
+    ~finally:(fun () -> cleanup_project_dir project_dir)
+    (fun () ->
+      let db_path = Filename.concat project_dir "chamallaw-demo.db" in
+      let log_path = Filename.concat project_dir "curator-output.log" in
+      let fixture_path =
+        Filename.concat project_dir "curator-output.fixture.json"
+      in
+      write_file fixture_path fixture_json ;
+      let result =
+        run_capture
+          (example_exe ())
+          [
+            "--debug-cabal";
+            "--project-dir";
+            project_dir;
+            "--db";
+            db_path;
+            "--log";
+            log_path;
+            "--curator-output-json";
+            fixture_path;
+          ]
+      in
+      check_exit_code 0 result ;
+      Alcotest.(check bool)
+        "debug flag run still prints DB path"
+        true
+        (contains result.stdout ("DB path: " ^ db_path)))
+
+let test_codex_backend_flag_accepts_fixture_workflow () =
+  let project_dir = create_temp_dir "chamallaw_example_project_" in
+  Fun.protect
+    ~finally:(fun () -> cleanup_project_dir project_dir)
+    (fun () ->
+      let db_path = Filename.concat project_dir "chamallaw-demo.db" in
+      let log_path = Filename.concat project_dir "curator-output.log" in
+      let fixture_path =
+        Filename.concat project_dir "curator-output.fixture.json"
+      in
+      write_file fixture_path fixture_json ;
+      let result =
+        run_capture
+          (example_exe ())
+          [
+            "--backend";
+            "codex";
+            "--debug-cabal";
+            "--project-dir";
+            project_dir;
+            "--db";
+            db_path;
+            "--log";
+            log_path;
+            "--curator-output-json";
+            fixture_path;
+          ]
+      in
+      check_exit_code 0 result ;
+      Alcotest.(check bool)
+        "codex fixture run prints selected backend"
+        true
+        (contains result.stdout "Selected backend: codex") ;
+      Alcotest.(check bool)
+        "codex fixture run still prints DB path"
+        true
+        (contains result.stdout ("DB path: " ^ db_path)))
+
+let test_unknown_backend_is_rejected () =
+  let result = run_capture (example_exe ()) ["--backend"; "not-real"] in
+  check_exit_code 2 result ;
+  Alcotest.(check bool)
+    "unknown backend error lists supported backends"
+    true
+    (contains result.stderr "unsupported backend \"not-real\"") ;
+  Alcotest.(check bool)
+    "unknown backend error mentions codex"
+    true
+    (contains result.stderr "codex")
+
 let run_fixture_failure fixture_content =
   let project_dir = create_temp_dir "chamallaw_example_project_" in
   Fun.protect
@@ -345,7 +439,7 @@ let test_contract_invalid_curator_json_preserves_raw_output () =
       "concept_suggestions";
     ]
 
-let test_example_uses_real_claude_path () =
+let test_example_uses_real_cabal_backend_paths () =
   let source_path =
     match Sys.getenv_opt "CHAMALLAW_EXAMPLE_SOURCE" with
     | Some path -> path
@@ -353,23 +447,41 @@ let test_example_uses_real_claude_path () =
   in
   let source = read_file source_path in
   check_contains source "Cabal.Registry.register (module Cabal.Claude_code)" ;
+  check_contains source "Cabal.Registry.register (module Cabal.Codex_cli)" ;
+  check_contains source "backend_id config.backend" ;
   check_contains source "Cabal.Backend_types.make_task_spec" ;
   check_contains source "Cabal.Agentic_backend.run_task" ;
   check_contains source "~json_schema:curator_schema" ;
   check_contains source "curator_error_of_result" ;
+  check_contains source "debug_cabal : bool" ;
+  check_contains source "Cabal.Diagnostics.set_handler" ;
+  check_contains source "Cabal.Diagnostics.Debug -> \"debug\"" ;
+  check_contains
+    source
+    "if config.debug_cabal then install_debug_cabal_handler ()" ;
   check_absent source "Mock_agent" ;
   check_absent source "CABAL_RUNNER" ;
   check_absent source "canned"
 
 let () =
   Alcotest.run
-    "chamallaw claude example"
+    "chamallaw workflow"
     [
       ( "real backend path",
-        [("source", `Quick, test_example_uses_real_claude_path)] );
-      ("help", [("exec", `Quick, test_help_executes_without_claude)]);
+        [("source", `Quick, test_example_uses_real_cabal_backend_paths)] );
+      ("help", [("exec", `Quick, test_help_executes_without_live_backend)]);
       ( "local workflow",
-        [("fixture", `Quick, test_local_fixture_workflow_executes_db_flow)] );
+        [
+          ("fixture", `Quick, test_local_fixture_workflow_executes_db_flow);
+          ( "debug cabal flag",
+            `Quick,
+            test_debug_cabal_flag_accepts_fixture_workflow );
+          ( "codex backend fixture",
+            `Quick,
+            test_codex_backend_flag_accepts_fixture_workflow );
+        ] );
+      ( "backend selection",
+        [("unknown", `Quick, test_unknown_backend_is_rejected)] );
       ( "curator fixture failures",
         [
           ( "invalid json",

@@ -62,41 +62,59 @@ stale schema.
 - findlib public library: `chamallaw`
 - top-level OCaml module: `Chamallaw`
 
-## Runnable Claude workflow example
+## Runnable Cabal backend workflow example
 
 `examples/chamallaw_claude_workflow.ml` demonstrates a local Chamallaw
-law+concept workflow against a file-backed SQLite database and the real Cabal
-Claude Code backend.
+law+concept workflow against a file-backed SQLite database and a real backend
+selected through Cabal at runtime. It defaults to `claude-code` for backward
+compatibility and also supports `codex`.
 
-Run it from the repository root with an authenticated `claude` CLI on `PATH`:
+Run it from the repository root with an authenticated backend CLI on `PATH`:
 
 ```bash
 EPURE_NO_COMMIT_CHECK=1 dune exec libs/chamallaw/examples/chamallaw_claude_workflow.exe -- \
+  --backend claude-code \
   --model haiku
 ```
+
+To use Codex instead:
+
+```bash
+EPURE_NO_COMMIT_CHECK=1 dune exec libs/chamallaw/examples/chamallaw_claude_workflow.exe -- \
+  --backend codex
+```
+
+Add `--debug-cabal` when debugging the Cabal/backend invocation; it prints Cabal
+diagnostics to stderr, including the backend command line.
 
 Options:
 
 - `--project-dir DIR` (default: a unique `0700` temp directory named like
-  `$TMPDIR/chamallaw-claude-workflow-<suffix>`) is the working directory used by
-  Cabal/Claude and stores generated example files.
+  `$TMPDIR/chamallaw-cabal-workflow-<suffix>`) is the working directory used by
+  Cabal and stores generated example files.
 - `--db PATH` overrides the SQLite database path (default:
   `$project_dir/chamallaw-demo.db`).
 - `--log PATH` overrides the curator log path (default:
   `$project_dir/curator-output.log`).
-- `--model MODEL` passes a Claude model override; omit it to use the CLI default.
-  `CHAMALLAW_CLAUDE_MODEL` is also honored.
-- `--curator-output-json PATH` skips the live Claude call and applies a local
+- `--backend BACKEND` selects the real Cabal backend. Supported values are
+  `claude-code` (default) and `codex`.
+- `--model MODEL` passes a backend-specific model override; omit it to use the
+  selected CLI default. `CHAMALLAW_MODEL` is also honored, with
+  `CHAMALLAW_CLAUDE_MODEL` and `CHAMALLAW_CODEX_MODEL` as backend-specific
+  fallbacks.
+- `--curator-output-json PATH` skips the live backend call and applies a local
   curator JSON document. This is intended for deterministic local smoke tests of
   DB creation, vocabulary seeding, parsing, application, queries, and log
   generation; it does not introduce a mock or fake Cabal backend.
+- `--debug-cabal` installs a Cabal diagnostics handler that forwards debug/info/
+  warn/error messages to stderr so `backend command: ...` is visible.
 
 The example:
 
 1. initializes Chamallaw and applies package migrations when needed;
 2. seeds the built-in vocabulary;
 3. creates project-local concept schemes/concepts and law↔concept links;
-4. invokes `Cabal.Claude_code` through `Cabal.Agentic_backend.run_task`
+4. invokes the selected real Cabal backend through `Cabal.Agentic_backend.run_task`
    with a JSON Schema-constrained `curate_ontology` request;
 5. logs raw curator output, stderr/agent text on error paths, and parsed
    structured curator output to stdout and the visible log file path;
@@ -104,5 +122,6 @@ The example:
 7. prints final concepts, final laws, and concept queries with associated laws.
 
 The live curator call is intentionally manual-only: tests/builds compile the
-example but do not call Claude. If Claude is missing or unauthenticated, the
-example exits non-zero with the backend error and keeps the log file for review.
+example but do not call a live backend. If the selected backend is missing or
+unauthenticated, the example exits non-zero with the backend error and keeps the
+log file for review.

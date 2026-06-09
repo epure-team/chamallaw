@@ -36,7 +36,7 @@
   eio_posix))
 
 (test
- (name test_chamallaw_claude_example)
+ (name test_chamallaw_workflow)
  (deps ../examples/chamallaw_claude_workflow.ml)
  (libraries
   chamallaw

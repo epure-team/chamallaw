@@ -15,12 +15,16 @@ module BT = Cabal.Backend_types
 
 let ( let* ) = Result.bind
 
+type backend = Claude_code | Codex
+
 type config = {
   project_dir : string;
   db_path : string;
   log_path : string;
+  backend : backend;
   model : string option;
   curator_output_json_path : string option;
+  debug_cabal : bool;
 }
 
 type concept_ref = {scheme_slug : string; concept : C.concept_row}
@@ -62,7 +66,8 @@ type curator_output = {
 }
 
 type curator_run =
-  | Claude_curator of {
+  | Backend_curator of {
+      backend : backend;
       result : BT.task_result;
       structured_json : Yojson.Safe.t;
       parsed : curator_output;
@@ -102,7 +107,7 @@ let default_project_dir () =
       let dir =
         Filename.concat
           (Filename.get_temp_dir_name ())
-          ("chamallaw-claude-workflow-" ^ suffix)
+          ("chamallaw-cabal-workflow-" ^ suffix)
       in
       try
         Unix.mkdir dir 0o700 ;
@@ -117,14 +122,49 @@ let default_db_path project_dir =
 let default_log_path project_dir =
   Filename.concat project_dir "curator-output.log"
 
+let supported_backend_ids = ["claude-code"; "codex"]
+
+let supported_backend_ids_text = String.concat ", " supported_backend_ids
+
+let backend_id = function Claude_code -> "claude-code" | Codex -> "codex"
+
+let backend_display_name = function
+  | Claude_code -> "Claude Code"
+  | Codex -> "OpenAI Codex"
+
+let backend_cli_name = function Claude_code -> "claude" | Codex -> "codex"
+
+let backend_of_string = function
+  | "claude-code" -> Ok Claude_code
+  | "codex" -> Ok Codex
+  | value ->
+      Error
+        (Printf.sprintf
+           "unsupported backend %S (supported: %s)"
+           value
+           supported_backend_ids_text)
+
+let rec first_env = function
+  | [] -> None
+  | name :: rest -> (
+      match Sys.getenv_opt name with
+      | Some value -> Some value
+      | None -> first_env rest)
+
+let default_model_for_backend = function
+  | Claude_code -> first_env ["CHAMALLAW_MODEL"; "CHAMALLAW_CLAUDE_MODEL"]
+  | Codex -> first_env ["CHAMALLAW_MODEL"; "CHAMALLAW_CODEX_MODEL"]
+
 let usage () =
   Printf.sprintf
-    "Usage: %s [--project-dir DIR] [--db PATH] [--log PATH] [--model MODEL] \
-     [--curator-output-json PATH]\n\n\
-     Runs a local Chamallaw law/concept workflow and invokes the real Claude \
-     Code backend through Cabal. Claude Code must be installed and \
-     authenticated unless --curator-output-json is supplied.\n"
+    "Usage: %s [--project-dir DIR] [--db PATH] [--log PATH] [--backend \
+     BACKEND] [--model MODEL] [--curator-output-json PATH] [--debug-cabal]\n\n\
+     Runs a local Chamallaw law/concept workflow and invokes a real Cabal \
+     backend. Supported backends: %s. Default: claude-code. The selected \
+     backend CLI must be installed and authenticated unless \
+     --curator-output-json is supplied.\n"
     Sys.argv.(0)
+    supported_backend_ids_text
 
 let take_value args i flag =
   if i + 1 >= Array.length args then Error (flag ^ " requires a value")
@@ -132,7 +172,8 @@ let take_value args i flag =
 
 let parse_args () =
   let args = Sys.argv in
-  let rec loop i project_dir db_path log_path model curator_output_json_path =
+  let rec loop i project_dir db_path log_path backend model
+      curator_output_json_path debug_cabal =
     if i >= Array.length args then
       let project_dir =
         Option.value project_dir ~default:(default_project_dir ())
@@ -143,15 +184,47 @@ let parse_args () =
       let log_path =
         Option.value log_path ~default:(default_log_path project_dir)
       in
+      let backend = Option.value backend ~default:Claude_code in
       let model =
         match model with
         | Some _ -> model
-        | None -> Sys.getenv_opt "CHAMALLAW_CLAUDE_MODEL"
+        | None -> default_model_for_backend backend
       in
-      Ok {project_dir; db_path; log_path; model; curator_output_json_path}
+      Ok
+        {
+          project_dir;
+          db_path;
+          log_path;
+          backend;
+          model;
+          curator_output_json_path;
+          debug_cabal;
+        }
     else
       match args.(i) with
       | "--help" | "-h" -> Error (usage ())
+      | "--debug-cabal" ->
+          loop
+            (i + 1)
+            project_dir
+            db_path
+            log_path
+            backend
+            model
+            curator_output_json_path
+            true
+      | "--backend" ->
+          let* value = take_value args i "--backend" in
+          let* backend = backend_of_string value in
+          loop
+            (i + 2)
+            project_dir
+            db_path
+            log_path
+            (Some backend)
+            model
+            curator_output_json_path
+            debug_cabal
       | "--project-dir" ->
           let* value = take_value args i "--project-dir" in
           loop
@@ -159,8 +232,10 @@ let parse_args () =
             (Some value)
             db_path
             log_path
+            backend
             model
             curator_output_json_path
+            debug_cabal
       | "--db" ->
           let* value = take_value args i "--db" in
           loop
@@ -168,8 +243,10 @@ let parse_args () =
             project_dir
             (Some value)
             log_path
+            backend
             model
             curator_output_json_path
+            debug_cabal
       | "--log" ->
           let* value = take_value args i "--log" in
           loop
@@ -177,8 +254,10 @@ let parse_args () =
             project_dir
             db_path
             (Some value)
+            backend
             model
             curator_output_json_path
+            debug_cabal
       | "--model" ->
           let* value = take_value args i "--model" in
           loop
@@ -186,14 +265,40 @@ let parse_args () =
             project_dir
             db_path
             log_path
+            backend
             (Some value)
             curator_output_json_path
+            debug_cabal
       | "--curator-output-json" ->
           let* value = take_value args i "--curator-output-json" in
-          loop (i + 2) project_dir db_path log_path model (Some value)
+          loop
+            (i + 2)
+            project_dir
+            db_path
+            log_path
+            backend
+            model
+            (Some value)
+            debug_cabal
       | other -> Error ("unknown argument: " ^ other ^ "\n" ^ usage ())
   in
-  loop 1 None None None None None
+  loop 1 None None None None None None false
+
+let cabal_diagnostic_level_to_string = function
+  | Cabal.Diagnostics.Debug -> "debug"
+  | Cabal.Diagnostics.Info -> "info"
+  | Cabal.Diagnostics.Warn -> "warn"
+  | Cabal.Diagnostics.Error -> "error"
+
+let install_debug_cabal_handler () =
+  Cabal.Diagnostics.set_handler (function
+    | Cabal.Diagnostics.Log (level, msg) ->
+        Printf.eprintf
+          "[cabal:%s] %s\n%!"
+          (cabal_diagnostic_level_to_string level)
+          msg
+    | Cabal.Diagnostics.User_warning msg ->
+        Printf.eprintf "[cabal:warning] %s\n%!" msg)
 
 let is_directory path = try Sys.is_directory path with Sys_error _ -> false
 
@@ -405,7 +510,7 @@ let get_or_create_law ?rationale ctx statement =
         ~scope
         ~statement
         ?rationale
-        ~provenance_note:"chamallaw claude workflow example"
+        ~provenance_note:"chamallaw cabal backend workflow example"
         ()
 
 let ensure_link ctx ~law ~concept ~role =
@@ -1106,7 +1211,8 @@ let apply_curator_output ctx output =
             ctx
             ~slug:suggestion.suggested_scheme_slug
             ~display_name:suggestion.suggested_scheme_display_name
-            ~description:"Created or reused from Claude curate_ontology output"
+            ~description:
+              "Created or reused from Cabal backend curate_ontology output"
             ()
         in
         let* concept =
@@ -1235,9 +1341,10 @@ let prompt_of_request (request : Host_adapter.runner_request) =
      - use exact law_statement values from the context for direct link \
      suggestions.\n"
 
-let register_claude_backend () =
+let register_supported_backends () =
   Cabal.Registry.clear () ;
-  Cabal.Registry.register (module Cabal.Claude_code)
+  Cabal.Registry.register (module Cabal.Claude_code) ;
+  Cabal.Registry.register (module Cabal.Codex_cli)
 
 let managed_namespace =
   BT.
@@ -1303,17 +1410,24 @@ let load_curator_output_json path =
       | Error msg -> Error (curator_error ~stdout:raw msg))
 
 let run_curator ~sw ~env config context_path =
-  register_claude_backend () ;
+  register_supported_backends () ;
+  let selected_backend_id = backend_id config.backend in
   let backend =
-    match Cabal.Registry.get "claude-code" with
+    match Cabal.Registry.get selected_backend_id with
     | Some backend -> backend
-    | None -> failwith "claude-code backend was not registered"
+    | None ->
+        failwith
+          (Printf.sprintf "%s backend was not registered" selected_backend_id)
   in
   if not (Cabal.Agentic_backend.available ~sw ~env backend) then
     Error
       (curator_error
-         "Claude Code CLI is not available on PATH. Install/authenticate the \
-          `claude` CLI and rerun the example.")
+         (Printf.sprintf
+            "%s CLI is not available on PATH. Install `%s` and rerun the \
+             example, or pass --curator-output-json to use a local curator \
+             JSON file."
+            (backend_display_name config.backend)
+            (backend_cli_name config.backend)))
   else
     let request = curator_request context_path in
     let prompt = prompt_of_request request in
@@ -1340,32 +1454,47 @@ let run_curator ~sw ~env config context_path =
             Error
               (curator_error_of_result
                  (Printf.sprintf
-                    "Claude returned success but the structured output was not \
+                    "%s returned success but the structured output was not \
                      valid JSON: %s"
+                    (backend_display_name config.backend)
                     msg)
                  result)
         | structured_json -> (
             match parse_curator_output structured_json with
-            | Ok parsed -> Ok (Claude_curator {result; structured_json; parsed})
+            | Ok parsed ->
+                Ok
+                  (Backend_curator
+                     {backend = config.backend; result; structured_json; parsed})
             | Error msg ->
                 Error
                   (curator_error_of_result
                      (Printf.sprintf
-                        "Claude returned success but the structured output did \
-                         not match the curator output contract: %s"
+                        "%s returned success but the structured output did not \
+                         match the curator output contract: %s"
+                        (backend_display_name config.backend)
                         msg)
                      result)))
     | BT.Failed msg ->
         Error
           (curator_error_of_result
-             (Printf.sprintf "Claude Code returned failure: %s" msg)
+             (Printf.sprintf
+                "%s returned failure: %s"
+                (backend_display_name config.backend)
+                msg)
              result)
     | BT.Timeout ->
-        Error (curator_error_of_result "Claude Code timed out" result)
+        Error
+          (curator_error_of_result
+             (Printf.sprintf
+                "%s timed out"
+                (backend_display_name config.backend))
+             result)
     | BT.Cancelled ->
         Error
           (curator_error_of_result
-             "Claude Code invocation was cancelled"
+             (Printf.sprintf
+                "%s invocation was cancelled"
+                (backend_display_name config.backend))
              result)
 
 let load_or_run_curator ~sw ~env config context_path =
@@ -1383,7 +1512,8 @@ let log_curator_error oc error =
   emit_section oc "Curator error" error.message
 
 let log_curator_success oc = function
-  | Claude_curator {result; structured_json; parsed} ->
+  | Backend_curator {backend; result; structured_json; parsed} ->
+      emit oc "Curator backend: %s\n" (backend_id backend) ;
       emit_section oc "Curator raw output" result.BT.stdout ;
       if String.length result.BT.stderr > 0 then
         emit_section oc "Curator stderr" result.BT.stderr ;
@@ -1402,7 +1532,7 @@ let log_curator_success oc = function
       emit_section oc "Curator summary" parsed.summary
 
 let curator_parsed = function
-  | Claude_curator {parsed; _} | File_curator {parsed; _} -> parsed
+  | Backend_curator {parsed; _} | File_curator {parsed; _} -> parsed
 
 let run_queries ctx =
   let queries =
@@ -1486,7 +1616,12 @@ let run ~sw ~env config =
         emit oc "DB path: %s\n" config.db_path ;
         emit oc "Project work dir: %s\n" config.project_dir ;
         emit oc "Curator log path: %s\n" config.log_path ;
-        Option.iter (emit oc "Claude model override: %s\n") config.model ;
+        emit
+          oc
+          "Selected backend: %s (%s)\n"
+          (backend_id config.backend)
+          (backend_display_name config.backend) ;
+        Option.iter (emit oc "Backend model override: %s\n") config.model ;
         let stdenv = (env :> Caqti_eio.stdenv) in
         match
           Caqti_eio_unix.connect
@@ -1504,6 +1639,7 @@ let () =
       prerr_string msg ;
       if String.starts_with ~prefix:"Usage:" msg then exit 0 else exit 2
   | Ok config ->
+      if config.debug_cabal then install_debug_cabal_handler () ;
       let exit_code = ref 0 in
       Eio_posix.run @@ fun env ->
       Eio.Switch.run @@ fun sw ->
