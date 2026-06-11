@@ -5,9 +5,11 @@ description:
   "Standalone law-domain package scaffold with package-owned schema fragments, typed host adapters, and smoke verification for Chamallaw Epic 89."
 maintainer: ["Epure Team"]
 authors: ["Epure Team"]
-license: "Proprietary"
-homepage: "https://github.com/epure-team/epure"
-bug-reports: "https://github.com/epure-team/epure/issues"
+license: "MIT"
+tags: ["law" "governance" "ocaml" "sqlite"]
+homepage: "https://github.com/epure-team/chamallaw"
+doc: "https://epure-team.github.io/chamallaw/"
+bug-reports: "https://github.com/epure-team/chamallaw/issues"
 depends: [
   "ocaml" {>= "5.3.0"}
   "dune" {>= "3.13" & >= "3.13"}
@@ -19,7 +21,6 @@ depends: [
   "alcotest" {with-test}
   "cabal" {with-test}
   "caqti-driver-sqlite3" {with-test}
-  "caqti-eio.unix" {with-test}
   "eio" {with-test}
   "eio_posix" {with-test}
   "uri" {with-test}
@@ -39,3 +40,4 @@ build: [
     "@doc" {with-doc}
   ]
 ]
+dev-repo: "git+https://github.com/epure-team/chamallaw.git"

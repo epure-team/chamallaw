@@ -1,0 +1,164 @@
+name: Sync from Épure
+
+on:
+  repository_dispatch:
+    types: [sync-chamallaw]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sync-from-epure-main
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Sync libs/chamallaw from Épure
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate Épure source payload
+        id: source
+        env:
+          DISPATCH_SOURCE_SHA: ${{ github.event.client_payload.source_sha }}
+          DISPATCH_SOURCE_REF: ${{ github.event.client_payload.source_ref }}
+          DISPATCH_SOURCE_REPOSITORY: ${{ github.event.client_payload.source_repository }}
+        run: |
+          set -euo pipefail
+          expected_repository="epure-team/epure"
+          expected_ref="refs/heads/main"
+
+          if [ -z "${DISPATCH_SOURCE_REPOSITORY}" ]; then
+            echo "Missing source_repository in repository_dispatch payload" >&2
+            exit 1
+          fi
+          if [ -z "${DISPATCH_SOURCE_REF}" ]; then
+            echo "Missing source_ref in repository_dispatch payload" >&2
+            exit 1
+          fi
+          if [ -z "${DISPATCH_SOURCE_SHA}" ]; then
+            echo "Missing source_sha in repository_dispatch payload" >&2
+            exit 1
+          fi
+          if ! [[ "${DISPATCH_SOURCE_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Invalid source_sha '${DISPATCH_SOURCE_SHA}'. Expected a 40-character lowercase hexadecimal commit SHA." >&2
+            exit 1
+          fi
+
+          if [ "${DISPATCH_SOURCE_REPOSITORY}" != "${expected_repository}" ]; then
+            echo "Unexpected source_repository '${DISPATCH_SOURCE_REPOSITORY}', expected '${expected_repository}'" >&2
+            exit 1
+          fi
+          if [ "${DISPATCH_SOURCE_REF}" != "${expected_ref}" ]; then
+            echo "Unexpected source_ref '${DISPATCH_SOURCE_REF}', expected '${expected_ref}'" >&2
+            exit 1
+          fi
+
+          echo "Using Épure source ${DISPATCH_SOURCE_SHA} from ${DISPATCH_SOURCE_REPOSITORY} @ ${DISPATCH_SOURCE_REF}"
+          echo "sha=${DISPATCH_SOURCE_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Validate Épure read token
+        env:
+          CHAMALLAW_EPURE_READ_TOKEN: ${{ secrets.CHAMALLAW_EPURE_READ_TOKEN }}
+        run: |
+          if [ -z "${CHAMALLAW_EPURE_READ_TOKEN}" ]; then
+            echo "CHAMALLAW_EPURE_READ_TOKEN is required to checkout epure-team/epure" >&2
+            exit 1
+          fi
+
+      - name: Validate Chamallaw mirror app secrets
+        env:
+          CHAMALLAW_MIRROR_APP_ID: ${{ secrets.CHAMALLAW_MIRROR_APP_ID }}
+          CHAMALLAW_MIRROR_APP_PRIVATE_KEY: ${{ secrets.CHAMALLAW_MIRROR_APP_PRIVATE_KEY }}
+        run: |
+          missing=0
+          if [ -z "${CHAMALLAW_MIRROR_APP_ID}" ]; then
+            echo "CHAMALLAW_MIRROR_APP_ID is required to create the Chamallaw mirror GitHub App token" >&2
+            missing=1
+          fi
+          if [ -z "${CHAMALLAW_MIRROR_APP_PRIVATE_KEY}" ]; then
+            echo "CHAMALLAW_MIRROR_APP_PRIVATE_KEY is required to create the Chamallaw mirror GitHub App token" >&2
+            missing=1
+          fi
+          if [ "${missing}" -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Checkout Épure source
+        uses: actions/checkout@v4
+        with:
+          repository: epure-team/epure
+          ref: ${{ steps.source.outputs.sha }}
+          path: epure
+          fetch-depth: 0
+          persist-credentials: false
+          token: ${{ secrets.CHAMALLAW_EPURE_READ_TOKEN }}
+
+      - name: Verify checked-out Épure revision
+        env:
+          CHAMALLAW_EPURE_READ_TOKEN: ${{ secrets.CHAMALLAW_EPURE_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          source_sha="${{ steps.source.outputs.sha }}"
+
+          checked_out_sha=$(git -C epure rev-parse HEAD)
+
+          if [ "${checked_out_sha}" != "${source_sha}" ]; then
+            echo "Checked-out Épure revision mismatch: expected '${source_sha}', got '${checked_out_sha}'" >&2
+            exit 1
+          fi
+
+          response=$(curl -fsSL \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${CHAMALLAW_EPURE_READ_TOKEN}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/epure-team/epure/commits/main)
+          resolved_sha=$(jq -r '.sha // empty' <<< "${response}")
+
+          if ! [[ "${resolved_sha}" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "Unable to resolve latest Épure main SHA from GitHub API" >&2
+            exit 1
+          fi
+
+          if [ "${resolved_sha}" != "${source_sha}" ]; then
+            echo "Épure revision mismatch: payload sha ${source_sha} does not match resolved Épure main SHA ${resolved_sha}" >&2
+            exit 1
+          fi
+
+      - name: Create Chamallaw mirror app token
+        id: mirror-app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.CHAMALLAW_MIRROR_APP_ID }}
+          private-key: ${{ secrets.CHAMALLAW_MIRROR_APP_PRIVATE_KEY }}
+          owner: epure-team
+          repositories: chamallaw
+          permission-contents: write
+          permission-workflows: write
+
+      - name: Split Chamallaw subtree
+        id: split
+        working-directory: epure
+        run: |
+          split_sha=$(git subtree split --prefix=libs/chamallaw HEAD)
+          if [ -z "${split_sha}" ]; then
+            echo "git subtree split produced an empty SHA" >&2
+            exit 1
+          fi
+
+          echo "Split SHA ${split_sha}"
+          echo "sha=${split_sha}" >> "$GITHUB_OUTPUT"
+
+      - name: Push split commit to Chamallaw main
+        env:
+          CHAMALLAW_MIRROR_TOKEN: ${{ steps.mirror-app-token.outputs.token }}
+          SPLIT_SHA: ${{ steps.split.outputs.sha }}
+        run: |
+          if [ -z "${CHAMALLAW_MIRROR_TOKEN}" ]; then
+            echo "Chamallaw mirror GitHub App token is required to push epure-team/chamallaw:main" >&2
+            exit 1
+          fi
+
+          git -C epure push \
+            "https://x-access-token:${CHAMALLAW_MIRROR_TOKEN}@github.com/epure-team/chamallaw.git" \
+            "${SPLIT_SHA}:refs/heads/main"

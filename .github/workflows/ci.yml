@@ -1,0 +1,47 @@
+name: Chamallaw CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build & Test (${{ matrix.os }}, OCaml ${{ matrix.ocaml-compiler }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        ocaml-compiler: ['5.3.0']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up OCaml
+        uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: ${{ matrix.ocaml-compiler }}
+
+      - name: Pin Cabal from GitHub
+        run: opam pin add cabal git+https://github.com/epure-team/cabal.git#main -n -y
+
+      - name: Install dependencies
+        run: opam install . --deps-only --with-test --with-doc -y
+
+      - name: Build install target
+        run: opam exec -- dune build @install
+
+      - name: Run tests
+        run: opam exec -- dune runtest
+
+      - name: Build documentation
+        run: opam exec -- dune build @doc
+
+      - name: Lint opam package
+        run: opam lint chamallaw.opam
