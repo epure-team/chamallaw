@@ -439,6 +439,48 @@ module Law_concept_links_store : sig
     (unit, string) result
 end
 
+(** Pure, total, deterministic contextual-law resolver (CH-01). Never calls an
+    LLM, a clock, or randomness; an uncertain verdict is always an explicit
+    [Unknown] entry, never a silent "no law applies". See
+    [Law_resolver.resolve] in the implementation for the full applicability
+    and relation-kind semantics. *)
+module Law_resolver : sig
+  (** Why one law landed in {!resolution.applicable}. Never empty for a given
+      entry. *)
+  type applicability_reason =
+    | Scope_match of Authorized_scope.t
+    | Link_match of {
+        link_role : Law_concept_links_store.link_role;
+        concept_id : int;
+        concept_slug : string;
+        matched_field : string;
+      }
+
+  type applicable_law = {
+    law : Law_store.law_row;
+    effective_force : Law_normative_metadata_store.force;
+    effective_authority : Law_normative_metadata_store.authority;
+    effective_severity : Law_normative_metadata_store.severity;
+    reasons : applicability_reason list;
+    overridden_by : int list;
+  }
+
+  type resolution = {
+    applicable : applicable_law list;
+    unknown : (Law_store.law_row * string) list;
+    exempted : (Law_store.law_row * int) list;
+  }
+
+  (** Resolve the laws visible from [scope] (via {!Law_store.list_visible})
+      against [work_context]. Pure and total: never raises, never queries a
+      clock, network, or LLM. *)
+  val resolve :
+    ctx:ctx ->
+    scope:Authorized_scope.t ->
+    work_context:Normalized_work_context.t ->
+    (resolution, string) result
+end
+
 (** Built-in vocabulary seed payloads. *)
 module Seed : sig
   type t

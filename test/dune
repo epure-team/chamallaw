@@ -11,7 +11,8 @@
   test_law_package_v2_migration
   test_law_store
   test_law_normative_metadata_store
-  test_law_concept_links_store)
+  test_law_concept_links_store
+  test_law_resolver)
  (modules
   test_package_metadata_store
   test_concept_scheme_store
@@ -24,7 +25,8 @@
   test_law_package_v2_migration
   test_law_store
   test_law_normative_metadata_store
-  test_law_concept_links_store)
+  test_law_concept_links_store
+  test_law_resolver)
  (libraries
   chamallaw
   alcotest

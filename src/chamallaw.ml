@@ -283,6 +283,35 @@ module Law_concept_links_store = struct
   let deactivate_link ~ctx = LCL.deactivate_link ctx.conn
 end
 
+module Law_resolver = struct
+  type applicability_reason = Law_resolver.applicability_reason =
+    | Scope_match of Authorized_scope.t
+    | Link_match of {
+        link_role : LCL.link_role;
+        concept_id : int;
+        concept_slug : string;
+        matched_field : string;
+      }
+
+  type applicable_law = Law_resolver.applicable_law = {
+    law : LS.law_row;
+    effective_force : LNM.force;
+    effective_authority : LNM.authority;
+    effective_severity : LNM.severity;
+    reasons : applicability_reason list;
+    overridden_by : int list;
+  }
+
+  type resolution = Law_resolver.resolution = {
+    applicable : applicable_law list;
+    unknown : (LS.law_row * string) list;
+    exempted : (LS.law_row * int) list;
+  }
+
+  let resolve ~ctx ~scope ~work_context =
+    Law_resolver.resolve ctx.conn ~scope ~work_context
+end
+
 module Seed = struct
   type t = V.Builtin_vocabulary_seed.seed
 

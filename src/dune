@@ -17,6 +17,7 @@
   law_normative_metadata_kinds
   law_normative_metadata_store
   law_relation_kind
+  law_resolver
   law_store
   normalized_work_context
   package_metadata_store
@@ -30,6 +31,7 @@
   law_normative_metadata_kinds
   law_normative_metadata_store
   law_relation_kind
+  law_resolver
   law_store
   package_metadata_store
   schema_fragments
