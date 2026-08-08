@@ -28,7 +28,27 @@
     no way to state a positive requirement), and a chamallaw concept only
     anchors to the architecture index when its slug is itself a valid
     [file:]/[fn:]/[module:] selector -- a concept with no such correspondent
-    is honestly non-compilable, not an error to paper over. *)
+    is honestly non-compilable, not an error to paper over.
+
+    {b Known semantic gap (tracked for CH-04, not fixed here).} The emitted
+    predicate's {i shape} is derived only from [(force, authority, link_role)]
+    -- {b never} from the law's [statement] text or from what it actually
+    prohibits. Every [Prohibition]/[Mandatory]/[Artifact_scope] law that
+    anchors currently compiles to the same [forbid exported outside <sel>]
+    ("this concept is the only permitted export surface"), regardless of
+    whether the law's real prohibition is about *exports* at all. A law
+    stating "payments must not reach the DB", anchored to
+    [file:**/payments.ml], compiles today to that same [exported outside]
+    predicate -- a materially different property, so a green gate on it does
+    {b not} prove the law's actual prohibition holds. Nothing currently
+    compiles in practice (no concept slug in the wild is yet a real
+    [file:]/[fn:]/[module:] selector, so this always falls through to the
+    "unanchored" [Error] case first) -- but before CH-04 makes real
+    compilation active, compilability must be conditioned on an explicit
+    signal that a law {i is} an export-surface restriction (a dedicated
+    [link_role], a normative field, or a concept-scheme convention), [Error]
+    otherwise. A non-export prohibition must stay honestly non-compilable,
+    never mis-compiled into the wrong predicate shape. *)
 
 type origin = {
   force : Law_normative_metadata_store.force;
@@ -41,7 +61,10 @@ type gate_spec = {
   rule_predicate : string;
       (** One arch-rules.txt rule-body line, e.g.
           ["forbid exported outside file:**/payments_db.ml"]. Does not
-          include the enclosing [rule "name"] line. *)
+          include the enclosing [rule "name"] line. Currently always the
+          [exported outside] shape (see the module doc's "known semantic
+          gap") -- it does not parse or reflect what the law's [statement]
+          actually prohibits. *)
   gate_id : string;  (** ["g-law-<id>"], stable for a given [law_id]. *)
   gate_on : string;
       (** The arch-rules JSON output field a host floor gate should read:
@@ -57,6 +80,12 @@ type gate_spec = {
     [effective_force = Prohibition] and [effective_authority = Mandatory];
     (c) the law has an [Artifact_scope] link whose matched concept's slug is
     itself a [file:]/[fn:]/[module:] selector. Every other case returns
-    [Error "<reason>"], explicitly -- never a vacuous or permissive gate. *)
+    [Error "<reason>"], explicitly -- never a vacuous or permissive gate.
+
+    A successful [Ok spec] proves only that the concept is anchored and the
+    law is a Mandatory prohibition -- {b not} that [spec.rule_predicate]
+    faithfully represents the law's actual prohibition (see the module
+    doc's "known semantic gap"); do not treat a green gate on today's output
+    as a proof of the law's [statement]. *)
 val to_gate_spec :
   Law_resolver.applicable_law -> (gate_spec, string) result
