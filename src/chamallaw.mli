@@ -481,6 +481,30 @@ module Law_resolver : sig
     (resolution, string) result
 end
 
+(** Pure, total, host-neutral compiler from a resolved law to an arch-rules
+    gate spec (CH-02a). Never touches the database and never depends on cwr
+    or arch-index; it emits data, it does not link against either tool. See
+    [Law_to_gate_spec.to_gate_spec] in the implementation for the exact
+    (force x authority x link_role) mapping table and the real arch-rules
+    grammar it targets. *)
+module Law_to_gate_spec : sig
+  type origin = {
+    force : Law_normative_metadata_store.force;
+    authority : Law_normative_metadata_store.authority;
+    severity : Law_normative_metadata_store.severity;
+  }
+
+  type gate_spec = {
+    law_id : int;
+    rule_predicate : string;
+    gate_id : string;
+    gate_on : string;
+    origin : origin;
+  }
+
+  val to_gate_spec : Law_resolver.applicable_law -> (gate_spec, string) result
+end
+
 (** Built-in vocabulary seed payloads. *)
 module Seed : sig
   type t

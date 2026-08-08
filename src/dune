@@ -19,6 +19,7 @@
   law_relation_kind
   law_resolver
   law_store
+  law_to_gate_spec
   normalized_work_context
   package_metadata_store
   schema_fragments
@@ -33,6 +34,7 @@
   law_relation_kind
   law_resolver
   law_store
+  law_to_gate_spec
   package_metadata_store
   schema_fragments
   vocabulary_store)

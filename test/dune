@@ -12,7 +12,8 @@
   test_law_store
   test_law_normative_metadata_store
   test_law_concept_links_store
-  test_law_resolver)
+  test_law_resolver
+  test_law_to_gate_spec)
  (modules
   test_package_metadata_store
   test_concept_scheme_store
@@ -26,7 +27,8 @@
   test_law_store
   test_law_normative_metadata_store
   test_law_concept_links_store
-  test_law_resolver)
+  test_law_resolver
+  test_law_to_gate_spec)
  (libraries
   chamallaw
   alcotest

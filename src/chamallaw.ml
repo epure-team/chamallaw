@@ -312,6 +312,24 @@ module Law_resolver = struct
     Law_resolver.resolve ctx.conn ~scope ~work_context
 end
 
+module Law_to_gate_spec = struct
+  type origin = Law_to_gate_spec.origin = {
+    force : LNM.force;
+    authority : LNM.authority;
+    severity : LNM.severity;
+  }
+
+  type gate_spec = Law_to_gate_spec.gate_spec = {
+    law_id : int;
+    rule_predicate : string;
+    gate_id : string;
+    gate_on : string;
+    origin : origin;
+  }
+
+  let to_gate_spec = Law_to_gate_spec.to_gate_spec
+end
+
 module Seed = struct
   type t = V.Builtin_vocabulary_seed.seed
 
